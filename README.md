@@ -2,8 +2,6 @@ Cross cluster/residency PGY analysis in 2023
 ================
 Joseph J Zhao
 
-### Cross cluster/residency PGY analysis in 2023
-
 Out of boredom, I sought to analyse the cross cluster/residency
 distribution of PGY status in the latest MOH residency match.
 
@@ -39,7 +37,7 @@ website:
 <https://www.physician.mohh.com.sg/Documents/July%202023%20Junior%20Residency%20Intake.pdf>
 
 ``` r
-df=read_csv("juniorresidency_2023.csv")
+df=read_csv(paste0(wd, "juniorresidency_2023.csv"))
 colnames(df)=c("mcr", "name", "match")
 ```
 
@@ -49,7 +47,7 @@ colnames(df)=c("mcr", "name", "match")
 df$cluster=str_extract(df$match, "(?<=- ).*")
 df$residency=str_extract(df$match, ".*(?= -)")
 
-# Use MCR number to impute PGY status (unfortunately, I do no have a smarter way)
+# Use MCR number to impute PGY status (unfortunately, I do not have a smarter way)
 df$pgy=paste0("PGY", ifelse(grepl("MP", df$mcr), 1, 69-as.numeric(str_extract(df$mcr, "[:digit:]{2}"))))
 
 # Oddly we have an outlier!
@@ -127,15 +125,6 @@ ggplot(df_stack, aes(x = label, y=value, fill=variable)) +
         scale_fill_manual(values=brewer.pal(unique(df$pgy), "Paired"))
 ```
 
-    ## Warning in if (n < 3) {: the condition has length > 1 and only the first
-    ## element will be used
-
-    ## Warning in if (n > maxcolors[which(name == namelist)]) {: the condition has
-    ## length > 1 and only the first element will be used
-
-    ## Warning in brewer.pal(unique(df$pgy), "Paired"): n too large, allowed maximum for palette Paired is 12
-    ## Returning the palette you asked for with that many colors
-
 ![](README_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
 
 ### Compute Bray-Curtis dissimilarity index
@@ -180,5 +169,7 @@ heatmap.2(as.matrix(di_mat), margins=c(18,23),
 ```
 
 ![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
+
+Hope you had fun reading this!
 
 Abbreviations: PGY, post graduate year

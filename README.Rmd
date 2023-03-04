@@ -7,8 +7,6 @@ editor_options:
   chunk_output_type: console
 ---
 
-### Cross cluster/residency PGY analysis in 2023
-
 Out of boredom, I sought to analyse the cross cluster/residency distribution of PGY status in the latest MOH residency match.
 
 ### Load packages
@@ -44,7 +42,7 @@ The residency match results were made available publicly on the MOHH website: ht
 
 ```{r warning = FALSE, message = FALSE}
 
-df=read_csv("juniorresidency_2023.csv")
+df=read_csv(paste0(wd, "juniorresidency_2023.csv"))
 colnames(df)=c("mcr", "name", "match")
 
 ```
@@ -56,7 +54,7 @@ colnames(df)=c("mcr", "name", "match")
 df$cluster=str_extract(df$match, "(?<=- ).*")
 df$residency=str_extract(df$match, ".*(?= -)")
 
-# Use MCR number to impute PGY status (unfortunately, I do no have a smarter way)
+# Use MCR number to impute PGY status (unfortunately, I do not have a smarter way)
 df$pgy=paste0("PGY", ifelse(grepl("MP", df$mcr), 1, 69-as.numeric(str_extract(df$mcr, "[:digit:]{2}"))))
 
 # Oddly we have an outlier!
@@ -101,7 +99,7 @@ head(df_stack)
 
 ### Plot stacked barcharts
 
-```{r fig.height=14, fig.width=14}
+```{r fig.height=14, fig.width=14, message=FALSE, warning=FALSE}
 
 ggplot(df_stack, aes(x = label, y=value, fill=variable)) + 
         geom_bar(stat="identity") +
