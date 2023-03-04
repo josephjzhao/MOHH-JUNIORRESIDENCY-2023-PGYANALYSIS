@@ -1,0 +1,158 @@
+---
+title: "Cross cluster/residency PGY analysis in 2023"
+author: "Joseph J Zhao"
+date: ""
+output: github_document
+editor_options: 
+  chunk_output_type: console
+---
+
+### Cross cluster/residency PGY analysis in 2023
+
+Out of boredom, I sought to analyse the cross cluster/residency distribution of PGY status in the latest MOH residency match.
+
+### Load packages
+
+```{r warning = FALSE, message = FALSE}
+package.name=c(
+  "readxl", "stringi", "stringr", "RColorBrewer", "vegan", "readr", "dplyr", "reshape", "ggplot2", "gplots"
+)
+
+for (package.name in package.name){
+  tryCatch(
+  {
+  if (!require(package.name, character.only = TRUE)){ 
+    install.packages(package.name, character.only = TRUE) 
+    library(package.name, character.only = TRUE)} else {library(package.name, character.only = TRUE)}
+  }, 
+    error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
+}
+
+```
+
+### Set working directory
+
+```{r message=FALSE, warning=FALSE}
+
+wd="C:/Users/jzhao/OneDrive/Personal/random/juniorresidency_2023/"
+setwd(wd)
+
+```
+
+### Load data
+The residency match results were made available publicly on the MOHH website: https://www.physician.mohh.com.sg/Documents/July%202023%20Junior%20Residency%20Intake.pdf
+
+```{r warning = FALSE, message = FALSE}
+
+df=read_csv("juniorresidency_2023.csv")
+colnames(df)=c("mcr", "name", "match")
+
+```
+
+### Extract additional variables with regular expression
+
+```{r}
+
+df$cluster=str_extract(df$match, "(?<=- ).*")
+df$residency=str_extract(df$match, ".*(?= -)")
+
+# Use MCR number to impute PGY status (unfortunately, I do no have a smarter way)
+df$pgy=paste0("PGY", ifelse(grepl("MP", df$mcr), 1, 69-as.numeric(str_extract(df$mcr, "[:digit:]{2}"))))
+
+# Oddly we have an outlier!
+table(df$pgy)
+subset(df, grepl("52", df$pgy))
+
+# Dr Ho is probably not a PGY52, so for now we will label him as unknown - "UNK"
+df$pgy=str_replace(df$pgy, "52", "UNK")
+
+```
+
+### Compute proportions of PGY status across cluster/residency
+
+```{r}
+
+# prepare proportions in wideform 
+out=NULL
+
+for (i.residency in unique(df$residency)){
+  for (i.cluster in unique(df$cluster)){
+    
+    df_temp=subset(df, df$residency==i.residency & df$cluster==i.cluster)
+    if(nrow(df_temp)==0){next()}
+    out=bind_rows(out, c(residency=i.residency, cluster=i.cluster, n=nrow(df_temp), prop.table(table(df_temp$pgy))))
+    
+  }
+}
+
+out=data.frame(out)
+out[,-c(1:2)]=apply(out[,-c(1:2)], 2, as.numeric)
+out[is.na(out)]=0
+
+# create label to include n
+out$label=paste0(out$cluster, " (n=", out$n, ")")
+
+# convert dataframe into long form
+df_stack=subset(melt(out), !melt(out)$variable=="n")
+
+head(df_stack)
+
+```
+
+### Plot stacked barcharts
+
+```{r fig.height=14, fig.width=14}
+
+ggplot(df_stack, aes(x = label, y=value, fill=variable)) + 
+        geom_bar(stat="identity") +
+        facet_wrap(~ residency, scales = "free") +
+        labs(x="", y="proportion", fill="PGY") +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+        scale_fill_manual(values=brewer.pal(unique(df$pgy), "Paired"))
+
+```
+
+### Compute Bray-Curtis dissimilarity index
+Grossly, we appreciate that the NUHS cluster matched more PGY1-2 applicants.
+Lets characterize the cross cluster discrepancy with a dissimilarity index.
+
+```{r fig.height=5, fig.width=7}
+
+out=NULL
+for (i.cluster in unique(df$cluster)){
+    
+  df_temp=subset(df, df$cluster==i.cluster)
+  if(nrow(df_temp)==0){next()}
+  out=bind_rows(out, c(cluster=i.cluster, prop.table(table(df_temp$pgy))))
+    
+}
+
+# Data preparation and cleaning
+out=data.frame(out)
+rownames(out)=out$cluster
+out$cluster=NULL
+out[,c(1:ncol(out))]=apply(out[,c(1:ncol(out))], 2, as.numeric)
+out[is.na(out)]=0
+
+# Lets suppose we are only interested in the top 3 clusters
+df_di=out[1:3, -ncol(out)]
+
+# Compute dissimilarity index
+di_mat=vegdist(df_di, method="bray", diag=T)  %>% as.matrix
+
+heatmap.2(as.matrix(di_mat), margins=c(18,23),
+            cellnote=format(round(di_mat,2), nsmall=2),
+            notecex=1.0,
+            notecol="black",
+            cexRow = 1,
+            density.info=c("none"),
+            cexCol = 1,
+            col=colorRampPalette(c(rep("grey", 1), rep("red4", 1)))(n = 50),
+            na.color=par("bg"),
+            trace="none")
+
+```
+
+Hope you had fun reading this!
+
+Abbreviations: PGY, post graduate year
